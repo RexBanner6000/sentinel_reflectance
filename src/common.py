@@ -46,7 +46,7 @@ class Sentinel2A:
 
         return mask
 
-    def create_linear_rgb(self, resolution: str = "10m"):
+    def create_linear_rgb(self, resolution: str = "20m"):
         bands = {}
         for band in ["B02", "B03", "B04"]:
             bands[band] = rasterio.open(
@@ -54,17 +54,28 @@ class Sentinel2A:
             )
 
         linear_rgb = np.zeros((bands["B04"].height, bands["B04"].width, 3))
-
         for i, band in enumerate(bands.values()):
             linear_rgb[:, :, i] = band.read(1)
-
         linear_rgb /= 4000
-
         return linear_rgb
 
     def create_srgb(self):
         rgb = self.create_linear_rgb()
-
         xyz = np.dot(rgb.reshape((-1, 3)), CIE_M).reshape(rgb.shape)
         srgb = xyz2rgb(xyz) * 255
         return Image.fromarray(srgb.astype("uint8"))
+
+    def get_random_samples(self, n: int = 10_000, mask_bands: Tuple[int] = (4, 5)):
+        rgb = self.create_linear_rgb().reshape((-1, 3))
+        mask = self.create_mask(mask_bands).reshape(-1).astype("bool")
+        rgb_samples = rgb[mask, :]
+        np.random.shuffle(rgb_samples)
+        if mask.sum() < n:
+            return rgb_samples
+        else:
+            return rgb_samples[:n, :]
+
+
+if __name__ == "__main__":
+    sent = Sentinel2A("./S2B_MSIL2A_20221205T085239_N0400_R107_T36UXA_20221205T102012.SAFE")
+    sent.get_random_samples(100)
