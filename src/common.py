@@ -1,10 +1,14 @@
 import os
-import rasterio
 import re
+from pathlib import Path
+from typing import Tuple
 
 import numpy as np
-from pathlib import Path
-from typing import Set
+import rasterio
+from PIL import Image
+from skimage.color import xyz2rgb
+
+from src.constants import CIE_M
 
 
 class Sentinel2A:
@@ -30,7 +34,7 @@ class Sentinel2A:
 
         return images
 
-    def create_mask(self, bands: Set[int] = (4, 5)):
+    def create_mask(self, bands: Tuple[int] = (4, 5)):
         scl = rasterio.open(
             os.path.join(self.path, self.images["SCL"]["20m"])
         ).read(1)
@@ -44,18 +48,23 @@ class Sentinel2A:
 
     def create_linear_rgb(self, resolution: str = "10m"):
         bands = {}
-        for band in ["B04", "B03", "B02"]:
+        for band in ["B02", "B03", "B04"]:
             bands[band] = rasterio.open(
-                os.path.join(self.path, self.images["B04"][resolution])
+                os.path.join(self.path, self.images[band][resolution])
             )
 
         linear_rgb = np.zeros((bands["B04"].height, bands["B04"].width, 3))
 
         for i, band in enumerate(bands.values()):
-            linear_rgb[..., i] = band.read(1)
+            linear_rgb[:, :, i] = band.read(1)
 
         linear_rgb /= 4000
 
         return linear_rgb
 
+    def create_srgb(self):
+        rgb = self.create_linear_rgb()
 
+        xyz = np.dot(rgb.reshape((-1, 3)), CIE_M).reshape(rgb.shape)
+        srgb = xyz2rgb(xyz) * 255
+        return Image.fromarray(srgb.astype("uint8"))
