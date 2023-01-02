@@ -8,7 +8,7 @@ import rasterio
 from PIL import Image
 from skimage.color import xyz2rgb
 
-from src.constants import CIE_M
+from .constants import CIE_M
 
 
 class Sentinel2A:
