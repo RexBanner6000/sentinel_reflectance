@@ -77,9 +77,7 @@ class Sentinel2A:
         return images
 
     def create_mask(self, bands: Tuple[int] = (4, 5)):
-        scl = rasterio.open(
-            os.path.join(self.path, self.images["SCL"]["20m"])
-        ).read(1)
+        scl = rasterio.open(os.path.join(self.path, self.images["SCL"]["20m"])).read(1)
 
         mask = np.zeros(scl.shape)
 
@@ -116,8 +114,3 @@ class Sentinel2A:
             return rgb_samples
         else:
             return rgb_samples[:n, :]
-
-
-if __name__ == "__main__":
-    sent = Sentinel2A(r"D:\datasets\sentinel2a\S2A_MSIL2A_20221112T111321_N0400_R137_T30UWB_20221112T145700.SAFE")
-    sent.get_random_samples(100)
