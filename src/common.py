@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import rasterio
@@ -14,15 +14,30 @@ from src.constants import CIE_M
 class Sentinel2A:
     def __init__(self, path: Path):
         self.path = path
-        self.images = self.get_image_files()
+        self.images: Dict = None
         self.mask: np.ndarray = None
+
+    def populate_metadata(self):
+        self.images = self.get_image_files()
+
+    def read_xml_file(self):
+        with open(os.path.join(self.path, "MTD_MSIL2A.xml"), "r") as fp:
+            raw_str = fp.read()
+        return raw_str
+
+    def get_solar_irradiance(self):
+        irradiance_regex = re.compile(
+            r"(?:<SOLAR_IRRADIANCE bandId=\"(\d{1,2})\") unit=\"(.*)\">\d*\.\d{1,2}</SOLAR_IRRADIANCE>"
+        )
+        raw_str = self.read_xml_file()
+        solar_irr = {}
+        groups = re.findall(irradiance_regex, raw_str)
 
     def get_image_files(self):
         img_regex = re.compile(
             r"(?:<IMAGE_FILE>(GRANULE/.*_(.{1,3})_(\d{1,2}m))</IMAGE_FILE>)"
         )
-        with open(os.path.join(self.path, "MTD_MSIL2A.xml"), "r") as fp:
-            raw_str = fp.read()
+        raw_str = self.read_xml_file()
 
         images = {}
         groups = re.findall(img_regex, raw_str)
