@@ -16,9 +16,30 @@ class Sentinel2A:
         self.path = path
         self.images: Dict = None
         self.mask: np.ndarray = None
+        self.solar_irradiance: Dict = None
+        self.band_mapping: Dict = None
+
+        self.populate_metadata()
 
     def populate_metadata(self):
         self.images = self.get_image_files()
+        self.band_mapping = self.get_physical_band_mapping()
+        self.solar_irradiance = self.get_solar_irradiance()
+
+    def get_physical_band_mapping(self):
+        physical_band_regex = re.compile(
+            r"(?:<Spectral_Information bandId=\"(\d{1,2})\" physicalBand=\"(.{1,3})\">)"
+        )
+
+        raw_str = self.read_xml_file()
+        band_mapping = {}
+        groups = re.findall(physical_band_regex, raw_str)
+
+        for group in groups:
+            if not band_mapping.get(group[0]):
+                band_mapping[group[0]] = group[1]
+
+        return band_mapping
 
     def read_xml_file(self):
         with open(os.path.join(self.path, "MTD_MSIL2A.xml"), "r") as fp:
@@ -27,11 +48,17 @@ class Sentinel2A:
 
     def get_solar_irradiance(self):
         irradiance_regex = re.compile(
-            r"(?:<SOLAR_IRRADIANCE bandId=\"(\d{1,2})\") unit=\"(.*)\">\d*\.\d{1,2}</SOLAR_IRRADIANCE>"
+            r"(?:<SOLAR_IRRADIANCE bandId=\"(\d{1,2})\") unit=\"(.*)\">(\d*\.\d{1,2})</SOLAR_IRRADIANCE>"
         )
         raw_str = self.read_xml_file()
         solar_irr = {}
         groups = re.findall(irradiance_regex, raw_str)
+
+        for group in groups:
+            if not solar_irr.get(group[0]):
+                solar_irr[group[0]] = float(group[2])
+
+        return solar_irr
 
     def get_image_files(self):
         img_regex = re.compile(
@@ -92,5 +119,5 @@ class Sentinel2A:
 
 
 if __name__ == "__main__":
-    sent = Sentinel2A("./S2B_MSIL2A_20221205T085239_N0400_R107_T36UXA_20221205T102012.SAFE")
+    sent = Sentinel2A(r"D:\datasets\sentinel2a\S2A_MSIL2A_20221112T111321_N0400_R137_T30UWB_20221112T145700.SAFE")
     sent.get_random_samples(100)
