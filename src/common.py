@@ -170,6 +170,14 @@ class Sentinel2A:
         linear_rgb /= 4000
         return linear_rgb
 
+    def create_band_image(self, bandId: str = "B08", resolution: str = "20m"):
+        band = rasterio.open(
+            os.path.join(self.path, self.images[bandId][resolution])
+        )
+
+        band_data = band.read(1) + self.boa_offset[bandId]
+        return band_data / 4000
+
     def create_srgb(self):
         rgb = self.create_linear_rgb()
         xyz = np.dot(rgb.reshape((-1, 3)), CIE_M).reshape(rgb.shape)
@@ -188,5 +196,5 @@ class Sentinel2A:
 
 
 if __name__ == "__main__":
-    sent = Sentinel2A("D:\datasets\sentinel2a\S2B_MSIL2A_20220812T112119_N0400_R037_T30UWB_20220812T124934.SAFE")
+    sent = Sentinel2A("D:\datasets\sentinel2a\S2B_MSIL2A_20220824T083559_N0400_R064_T36UYA_20220824T100829.SAFE")
     a = 0
