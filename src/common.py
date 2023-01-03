@@ -31,7 +31,7 @@ class Sentinel2A:
             r"(?:<Spectral_Information bandId=\"(\d{1,2})\" physicalBand=\"(.{1,3})\">)"
         )
 
-        raw_str = self.read_xml_file()
+        raw_str = self.read_text_file("MTD_MSIL2A.xml")
         band_mapping = {}
         groups = re.findall(physical_band_regex, raw_str)
 
@@ -41,8 +41,8 @@ class Sentinel2A:
 
         return band_mapping
 
-    def read_xml_file(self):
-        with open(os.path.join(self.path, "MTD_MSIL2A.xml"), "r") as fp:
+    def read_text_file(self, filename: str):
+        with open(os.path.join(self.path, filename), "r") as fp:
             raw_str = fp.read()
         return raw_str
 
@@ -50,7 +50,7 @@ class Sentinel2A:
         irradiance_regex = re.compile(
             r"(?:<SOLAR_IRRADIANCE bandId=\"(\d{1,2})\") unit=\"(.*)\">(\d*\.\d{1,2})</SOLAR_IRRADIANCE>"
         )
-        raw_str = self.read_xml_file()
+        raw_str = self.read_text_file("MTD_MSIL2A.xml")
         solar_irr = {}
         groups = re.findall(irradiance_regex, raw_str)
 
@@ -64,7 +64,7 @@ class Sentinel2A:
         img_regex = re.compile(
             r"(?:<IMAGE_FILE>(GRANULE/.*_(.{1,3})_(\d{1,2}m))</IMAGE_FILE>)"
         )
-        raw_str = self.read_xml_file()
+        raw_str = self.read_text_file("MTD_MSIL2A.xml")
 
         images = {}
         groups = re.findall(img_regex, raw_str)
