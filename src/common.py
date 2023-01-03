@@ -95,7 +95,7 @@ class Sentinel2A:
 
     def get_physical_band_mapping(self):
         physical_band_regex = re.compile(
-            r"(?:<Spectral_Information bandId=\"(\d{1,2})\" physicalBand=\"(.{1,3})\">)"
+            r"(?:<Spectral_Information bandId=\"(\d{1,2})\" physicalBand=\"(\w)(\d+(?:\w)?)\">)"
         )
 
         raw_str = self.read_text_file("MTD_MSIL2A.xml")
@@ -103,8 +103,10 @@ class Sentinel2A:
         groups = re.findall(physical_band_regex, raw_str)
 
         for group in groups:
-            if not band_mapping.get(group[0]):
-                band_mapping[group[0]] = group[1]
+            try:
+                band_mapping[group[0]] = group[1] + f"{int(group[2]):02d}"
+            except ValueError:
+                band_mapping[group[0]] = group[1] + f"{(group[2])}"
 
         return band_mapping
 
@@ -161,8 +163,10 @@ class Sentinel2A:
             )
 
         linear_rgb = np.zeros((bands["B04"].height, bands["B04"].width, 3))
-        for i, band in enumerate(bands.values()):
-            linear_rgb[:, :, i] = band.read(1)
+        c = 0
+        for band in ["B02", "B03", "B04"]:
+            linear_rgb[:, :, c] = (bands[band].read(1) + self.boa_offset[band])
+            c += 1
         linear_rgb /= 4000
         return linear_rgb
 
