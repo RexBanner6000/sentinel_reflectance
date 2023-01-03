@@ -26,16 +26,45 @@ class Sentinel2A:
         self.country_code: str = None
         self.capture_date: str = None
         self.continent: str = None
+        self.boa_offset: Dict = None
+        self.boa_quantification: int = 10_000
 
         self.populate_metadata()
 
     def populate_metadata(self):
         self.images = self.get_image_files()
         self.band_mapping = self.get_physical_band_mapping()
+        self.boa_offset = self.get_boa_offset()
+        quants = self.get_quantification_values()
+        self.boa_quantification = quants["BOA"]
         self.solar_irradiance = self.get_solar_irradiance()
 
         self.bounding_coords = self.get_bounding_coords()
         self.reverse_geocode_location()
+
+    def get_boa_offset(self):
+        boa_offset_regex = re.compile(
+            r"(?:<BOA_ADD_OFFSET band_id=\"(\d{1,2})\">(-?\d{1,4})</BOA_ADD_OFFSET>)"
+        )
+        raw_str = self.read_text_file("MTD_MSIL2A.xml")
+        boa_offsets = {}
+        groups = re.findall(boa_offset_regex, raw_str)
+
+        for group in groups:
+            boa_offsets[group[0]] = int(group[1])
+
+        return boa_offsets
+
+    def get_quantification_values(self):
+        quantification_regex = re.compile(
+            r"(?:<(\w{1,3})_QUANTIFICATION_VALUE unit=\"\S*\">(\d+(?:\.\d+)?)</\w{1,3}_QUANTIFICATION_VALUE>)"
+        )
+        raw_str = self.read_text_file("MTD_MSIL2A.xml")
+        quantification_values = {}
+        groups = re.findall(quantification_regex, raw_str)
+        for group in groups:
+            quantification_values[group[0]] = float(group[1])
+        return quantification_values
 
     def get_bounding_coords(self):
         coords_regex = re.compile(
