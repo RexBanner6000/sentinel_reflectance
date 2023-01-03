@@ -1,10 +1,12 @@
 import os
 import re
+import ssl
 from pathlib import Path
 from typing import Dict, Tuple
 
 import numpy as np
 import rasterio
+from geopy.geocoders import Nominatim
 from PIL import Image
 from skimage.color import xyz2rgb
 
@@ -18,6 +20,11 @@ class Sentinel2A:
         self.mask: np.ndarray = None
         self.solar_irradiance: Dict = None
         self.band_mapping: Dict = None
+        self.bounding_coords: Dict = None
+        self.country: str = None
+        self.country_code: str = None
+        self.capture_date: str = None
+        self.continent: str = None
 
         self.populate_metadata()
 
@@ -25,6 +32,35 @@ class Sentinel2A:
         self.images = self.get_image_files()
         self.band_mapping = self.get_physical_band_mapping()
         self.solar_irradiance = self.get_solar_irradiance()
+
+        self.bounding_coords = self.get_bounding_coords()
+        self.reverse_geocode_location()
+
+    def get_bounding_coords(self):
+        coords_regex = re.compile(
+            r"(?:<gmd:(\w*)Bound(\w*)>\n\s*<gco:Decimal>(\d{1,3}\.\d*)</gco:Decimal>)"
+        )
+        raw_str = self.read_text_file("INSPIRE.xml")
+        bounding_coords = {}
+        groups = re.findall(coords_regex, raw_str)
+
+        for group in groups:
+            if not bounding_coords.get(group[0]):
+                bounding_coords[group[0]] = float(group[2])
+        return bounding_coords
+
+    def reverse_geocode_location(self):
+        top_left = (self.bounding_coords["north"], self.bounding_coords["east"])
+        bottom_right = (self.bounding_coords["south"], self.bounding_coords["west"])
+
+        centre_coords = tuple(map(np.mean, zip(*(top_left, bottom_right))))
+        #TODO: Fix SSL request so this isnt needed
+        ssl._create_default_https_context = ssl._create_unverified_context
+
+        locator = Nominatim(user_agent="sent2ref", scheme="https")
+        location = locator.reverse(centre_coords)
+        self.country = location.raw["address"]["country"]
+        self.country_code = location.raw["address"]["country_code"]
 
     def get_physical_band_mapping(self):
         physical_band_regex = re.compile(
@@ -114,3 +150,8 @@ class Sentinel2A:
             return rgb_samples
         else:
             return rgb_samples[:n, :]
+
+
+if __name__ == "__main__":
+    sent = Sentinel2A("D:\datasets\sentinel2a\S2B_MSIL2A_20220812T112119_N0400_R037_T30UWB_20220812T124934.SAFE")
+    a = 0
