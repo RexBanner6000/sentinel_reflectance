@@ -51,7 +51,7 @@ class Sentinel2A:
         groups = re.findall(boa_offset_regex, raw_str)
 
         for group in groups:
-            boa_offsets[group[0]] = int(group[1])
+            boa_offsets[self.band_mapping[group[0]]] = int(group[1])
 
         return boa_offsets
 
@@ -123,7 +123,7 @@ class Sentinel2A:
 
         for group in groups:
             if not solar_irr.get(group[0]):
-                solar_irr[group[0]] = float(group[2])
+                solar_irr[self.band_mapping[group[0]]] = float(group[2])
 
         return solar_irr
 
