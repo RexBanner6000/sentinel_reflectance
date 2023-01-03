@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 import numpy as np
+import pycountry_convert as pc
 import rasterio
 from geopy.geocoders import Nominatim
 from PIL import Image
@@ -60,7 +61,8 @@ class Sentinel2A:
         locator = Nominatim(user_agent="sent2ref", scheme="https")
         location = locator.reverse(centre_coords)
         self.country = location.raw["address"]["country"]
-        self.country_code = location.raw["address"]["country_code"]
+        self.country_code = location.raw["address"]["country_code"].upper()
+        self.continent = pc.country_alpha2_to_continent_code(self.country_code)
 
     def get_physical_band_mapping(self):
         physical_band_regex = re.compile(
