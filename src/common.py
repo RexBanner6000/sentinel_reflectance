@@ -168,16 +168,16 @@ class Sentinel2A:
         for band in ["B02", "B03", "B04"]:
             linear_rgb[:, :, c] = (bands[band].read(1) + self.boa_offset[band])
             c += 1
-        linear_rgb /= 4000
+        linear_rgb /= self.boa_quantification
         return linear_rgb
 
-    def create_band_image(self, bandId: str = "B08", resolution: str = "20m"):
+    def create_band_image(self, bandid: str = "B08", resolution: str = "10m"):
         band = rasterio.open(
-            os.path.join(self.path, self.images[bandId][resolution])
+            os.path.join(self.path, self.images[bandid][resolution])
         )
 
-        band_data = band.read(1) + self.boa_offset[bandId]
-        return band_data / 4000
+        band_data = band.read(1) + self.boa_offset[bandid]
+        return band_data / self.boa_quantification
 
     def create_srgb(self, resolution: str = "10m"):
         rgb = self.create_linear_rgb(resolution=resolution)
@@ -187,12 +187,16 @@ class Sentinel2A:
 
     def get_random_samples(self, n: int = 10_000, mask_bands: Tuple[int] = (4, 5)):
         rgb = self.create_linear_rgb(resolution="10m")
+        nir = self.create_band_image(bandid="B08", resolution="10m").reshape((-1, 1))
+
         mask = self.create_mask(mask_bands)
         mask = resize(mask, (rgb.shape[0], rgb.shape[1])).reshape(-1)
         rgb = rgb.reshape((-1, 3))
-        rgb_samples = rgb[mask == 1, :]
-        np.random.shuffle(rgb_samples)
+
+        data = np.append(rgb, nir, axis=1)
+        samples = data[mask == 1, :]
+        np.random.shuffle(samples)
         if mask.sum() < n:
-            return rgb_samples
+            return samples
         else:
             return rgb_samples[:n, :]
