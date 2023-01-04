@@ -12,7 +12,7 @@ from PIL import Image
 from skimage.color import xyz2rgb
 from skimage.transform import resize
 
-from .constants import CIE_M
+from constants import CIE_M
 
 
 class Sentinel2A:
@@ -168,7 +168,7 @@ class Sentinel2A:
         for band in ["B02", "B03", "B04"]:
             linear_rgb[:, :, c] = (bands[band].read(1) + self.boa_offset[band])
             c += 1
-        linear_rgb /= self.boa_quantification
+        linear_rgb /= (self.boa_quantification + self.boa_offset[band])
         return linear_rgb
 
     def create_band_image(self, bandid: str = "B08", resolution: str = "10m"):

@@ -36,6 +36,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     sentinel_data = Sentinel2A(os.path.abspath(args.directory))
+    print(f"Loading data from {args.directory}..")
+    print(f"\t-Country: {sentinel_data.country}, {sentinel_data.country_code}")
+    print(f"\t-Continent: {sentinel_data.continent}")
+
 
     if args.rgb_image:
         image = sentinel_data.create_srgb(resolution=args.resolution)
