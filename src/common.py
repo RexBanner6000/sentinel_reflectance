@@ -10,6 +10,7 @@ import rasterio
 from geopy.geocoders import Nominatim
 from PIL import Image
 from skimage.color import xyz2rgb
+from skimage.transform import resize
 
 from .constants import CIE_M
 
@@ -185,9 +186,11 @@ class Sentinel2A:
         return Image.fromarray(srgb.astype("uint8"))
 
     def get_random_samples(self, n: int = 10_000, mask_bands: Tuple[int] = (4, 5)):
-        rgb = self.create_linear_rgb().reshape((-1, 3))
-        mask = self.create_mask(mask_bands).reshape(-1).astype("bool")
-        rgb_samples = rgb[mask, :]
+        rgb = self.create_linear_rgb(resolution="10m")
+        mask = self.create_mask(mask_bands)
+        mask = resize(mask, (rgb.shape[0], rgb.shape[1])).reshape(-1)
+        rgb = rgb.reshape((-1, 3))
+        rgb_samples = rgb[mask == 1, :]
         np.random.shuffle(rgb_samples)
         if mask.sum() < n:
             return rgb_samples
@@ -197,4 +200,5 @@ class Sentinel2A:
 
 if __name__ == "__main__":
     sent = Sentinel2A("D:\datasets\sentinel2a\S2B_MSIL2A_20220824T083559_N0400_R064_T36UYA_20220824T100829.SAFE")
-    a = 0
+    print(sent.get_random_samples(10))
+    sent.create_srgb()

@@ -29,7 +29,7 @@ if __name__ == "__main__":
     sentinel_data = Sentinel2A(os.path.abspath(args.directory))
 
     if args.rgb_image:
-        image = sentinel_data.create_srgb()
+        image = sentinel_data.create_srgb(resolution=args.resolution)
         image.save(args.rgb_image)
 
     if args.n_samples:
