@@ -156,7 +156,7 @@ class Sentinel2A:
 
         return mask
 
-    def create_linear_rgb(self, resolution: str = "20m"):
+    def create_linear_rgb(self, resolution: str = "10m"):
         bands = {}
         for band in ["B02", "B03", "B04"]:
             bands[band] = rasterio.open(
@@ -179,8 +179,8 @@ class Sentinel2A:
         band_data = band.read(1) + self.boa_offset[bandId]
         return band_data / 4000
 
-    def create_srgb(self):
-        rgb = self.create_linear_rgb()
+    def create_srgb(self, resolution: str = "10m"):
+        rgb = self.create_linear_rgb(resolution=resolution)
         xyz = np.dot(rgb.reshape((-1, 3)), CIE_M).reshape(rgb.shape)
         srgb = xyz2rgb(xyz) * 255
         return Image.fromarray(srgb.astype("uint8"))

@@ -24,6 +24,15 @@ if __name__ == "__main__":
         type=int
     )
 
+    parser.add_argument(
+        "-r",
+        "--resolution",
+        required=False,
+        help="Ground resolution to use ['10m', '20m', '60m']",
+        default="10m",
+        type=str
+    )
+
     args = parser.parse_args()
 
     sentinel_data = Sentinel2A(os.path.abspath(args.directory))
