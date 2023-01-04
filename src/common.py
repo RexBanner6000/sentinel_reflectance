@@ -196,9 +196,3 @@ class Sentinel2A:
             return rgb_samples
         else:
             return rgb_samples[:n, :]
-
-
-if __name__ == "__main__":
-    sent = Sentinel2A("D:\datasets\sentinel2a\S2B_MSIL2A_20220824T083559_N0400_R064_T36UYA_20220824T100829.SAFE")
-    print(sent.get_random_samples(10))
-    sent.create_srgb()
