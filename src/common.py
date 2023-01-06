@@ -30,6 +30,10 @@ class Sentinel2A:
         self.continent: str = None
         self.boa_offset: Dict = None
         self.boa_quantification: int = 10_000
+        self.processing_level: str = "NA"
+        self.product_type: str = "NA"
+        self.product_uri: str = "NA"
+        self.season: Season = Season.UNKNOWN
 
         self.populate_metadata()
 
@@ -43,6 +47,19 @@ class Sentinel2A:
 
         self.bounding_coords = self.get_bounding_coords()
         self.reverse_geocode_location()
+
+        self.capture_date = self.get_product_info("PRODUCT_START_TIME")
+        self.product_type = self.get_product_info("PRODUCT_TYPE")
+        self.processing_level = self.get_product_info("PROCESSING_LEVEL")
+        self.product_uri = self.get_product_info("PRODUCT_URI")
+
+    def get_product_info(self, param: str):
+        capture_regex = re.compile(
+            rf"(?:<{param}>(.*)</\w*>)"
+        )
+        raw_str = self.read_text_file("MTD_MSIL2A.xml")
+        match = re.search(capture_regex, raw_str)
+        return match.group(1)
 
     def get_boa_offset(self):
         boa_offset_regex = re.compile(
