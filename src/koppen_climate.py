@@ -1,11 +1,13 @@
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 
 def read_climate_data(filename: Path):
     koppen = np.genfromtxt(
         filename,
-        dtype=[("latitude", "f8"), ("longitude", "f8"), ("p1901-2010", "U3")], names=True
+        dtype=[("latitude", "f8"), ("longitude", "f8"), ("p1901-2010", "U3")],
+        names=True,
     )
     return koppen
 
@@ -17,9 +19,7 @@ def create_climate_labels(climates):
     return climate_labels
 
 
-def get_coord_climate(
-        latitude: float, longitude: float, koppen
-):
+def get_coord_climate(latitude: float, longitude: float, koppen):
     climate_labels = create_climate_labels(koppen["p1901_2010"])
 
     z = np.vectorize(climate_labels.get)(koppen["p1901_2010"])
@@ -36,7 +36,7 @@ def get_coord_climate(
 
 
 def lookup_nearest(x0, y0, x, y, z):
-    xi = np.abs(x-x0)
-    yi = np.abs(y-y0)
-    zi = (xi ** 2 + yi ** 2).argmin()
+    xi = np.abs(x - x0)
+    yi = np.abs(y - y0)
+    zi = (xi**2 + yi**2).argmin()
     return z[zi]

@@ -1,13 +1,15 @@
 import argparse
 import os
+
 from .src.common import Sentinel2A
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-d", "--directory",
+        "-d",
+        "--directory",
         required=True,
-        help="Sentinel2A data directory to be processed"
+        help="Sentinel2A data directory to be processed",
     )
 
     parser.add_argument(
@@ -21,7 +23,7 @@ if __name__ == "__main__":
         "--n_samples",
         required=False,
         help="Extract n pixel values from the data",
-        type=int
+        type=int,
     )
 
     parser.add_argument(
@@ -30,7 +32,7 @@ if __name__ == "__main__":
         required=False,
         help="Ground resolution to use ['10m', '20m', '60m']",
         default="10m",
-        type=str
+        type=str,
     )
 
     args = parser.parse_args()
@@ -39,7 +41,6 @@ if __name__ == "__main__":
     print(f"Loading data from {args.directory}..")
     print(f"\t-Country: {sentinel_data.country}, {sentinel_data.country_code}")
     print(f"\t-Continent: {sentinel_data.continent}")
-
 
     if args.rgb_image:
         image = sentinel_data.create_srgb(resolution=args.resolution)

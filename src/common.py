@@ -1,20 +1,20 @@
 import os
-import psycopg2
 import re
 import ssl
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Dict, Tuple
+from uuid import uuid4
 
 import numpy as np
+import psycopg2
 import pycountry_convert as pc
 import rasterio
 from geopy.geocoders import Nominatim
 from PIL import Image
 from skimage.color import xyz2rgb
 from skimage.transform import resize
-from uuid import uuid4
 
 import koppen_climate
 from constants import CIE_M
@@ -66,14 +66,10 @@ class Sentinel2A:
         self.product_type = self.get_product_info("PRODUCT_TYPE")
         self.processing_level = self.get_product_info("PROCESSING_LEVEL")
         self.product_uri = self.get_product_info("PRODUCT_URI")
-        self.season = get_season(
-            self.capture_date.split('T')[0], self.centre_coords[0]
-        )
+        self.season = get_season(self.capture_date.split("T")[0], self.centre_coords[0])
 
     def get_product_info(self, param: str):
-        capture_regex = re.compile(
-            rf"(?:<{param}>(.*)</\w*>)"
-        )
+        capture_regex = re.compile(rf"(?:<{param}>(.*)</\w*>)")
         raw_str = self.read_text_file("MTD_MSIL2A.xml")
         match = re.search(capture_regex, raw_str)
         return match.group(1)
@@ -116,7 +112,7 @@ class Sentinel2A:
         return bounding_coords
 
     def reverse_geocode_location(self):
-        #TODO: Fix SSL request so this isnt needed
+        # TODO: Fix SSL request so this isnt needed
         ssl._create_default_https_context = ssl._create_unverified_context
 
         locator = Nominatim(user_agent="sent2ref", scheme="https")
@@ -201,15 +197,13 @@ class Sentinel2A:
         linear_rgb = np.zeros((bands["B04"].height, bands["B04"].width, 3))
         c = 0
         for band in ["B02", "B03", "B04"]:
-            linear_rgb[:, :, c] = (bands[band].read(1) + self.boa_offset[band])
+            linear_rgb[:, :, c] = bands[band].read(1) + self.boa_offset[band]
             c += 1
-        linear_rgb /= (self.boa_quantification + self.boa_offset[band])
+        linear_rgb /= self.boa_quantification + self.boa_offset[band]
         return linear_rgb
 
     def create_band_image(self, bandid: str = "B08", resolution: str = "10m"):
-        band = rasterio.open(
-            os.path.join(self.path, self.images[bandid][resolution])
-        )
+        band = rasterio.open(os.path.join(self.path, self.images[bandid][resolution]))
 
         band_data = band.read(1) + self.boa_offset[bandid]
         return band_data / (self.boa_quantification + self.boa_offset[bandid])
@@ -220,7 +214,9 @@ class Sentinel2A:
         srgb = xyz2rgb(xyz) * 255
         return Image.fromarray(srgb.astype("uint8"))
 
-    def get_random_samples(self, n: int = 10_000, mask_bands: Tuple[int] = (2, 4, 5, 11)):
+    def get_random_samples(
+        self, n: int = 10_000, mask_bands: Tuple[int] = (2, 4, 5, 11)
+    ):
         rgb = self.create_linear_rgb(resolution="10m")
         nir = self.create_band_image(bandid="B08", resolution="10m").reshape((-1, 1))
         scl = rasterio.open(os.path.join(self.path, self.images["SCL"]["20m"])).read(1)
@@ -241,7 +237,7 @@ class Sentinel2A:
             return samples[idx, :]
 
     def samples_to_db(self, n: int = 10_000):
-        print(f"Getting {n} samples from {self.product_uri}...")
+        print(f"Getting {n} samples...")
         samples = self.get_random_samples(n)
 
         print("Getting climate data...")
@@ -260,17 +256,21 @@ class Sentinel2A:
             cur.execute(sql)
         print("Committing SQL to DB...")
         connection.commit()
-        print("Done!")
+        print("Done!\n")
 
     def _connect_to_db(self):
-        return psycopg2.connect("dbname='postgres' user='postgres' host='localhost' password='postgres'")
+        return psycopg2.connect(
+            "dbname='postgres' user='postgres' host='localhost' password='postgres'"
+        )
 
     def _generate_sql(self, sample: np.array, climate: str, table: str = "sentinel2a"):
-        sql = f"INSERT INTO {table} " \
-              f"(uuid,product_uri,country,continent,capture,b02,b03,b04,b08,season,climate,classification) " \
-              f"VALUES ('{uuid4().hex}', '{self.product_uri}', '{self.country_code}', " \
-              f"'{self.continent}', '{self.capture_date}', '{sample[0]}', '{sample[1]}', " \
-              f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}', '{int(sample[4])}')"
+        sql = (
+            f"INSERT INTO {table} "
+            f"(uuid,product_uri,country,continent,capture,b02,b03,b04,b08,season,climate,classification) "
+            f"VALUES ('{uuid4().hex}', '{self.product_uri}', '{self.country_code}', "
+            f"'{self.continent}', '{self.capture_date}', '{sample[0]}', '{sample[1]}', "
+            f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}', '{int(sample[4])}')"
+        )
 
         return sql
 
@@ -300,6 +300,7 @@ def get_season(date: str, latitude: float):
 
 if __name__ == "__main__":
     for img in os.listdir(r"D:\datasets\sentinel2a\\"):
+        print(f"Reading {img}...")
         sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
         sentinel.samples_to_db(100_000)
         del sentinel
