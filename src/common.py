@@ -234,11 +234,11 @@ class Sentinel2A:
 
         data = np.append(rgb, nir, axis=1)
         samples = data[mask == 1, :]
-        np.random.shuffle(samples)
+        idx = np.random.randint(0, len(samples), n)
         if mask.sum() < n:
             return samples
         else:
-            return samples[:n, :]
+            return samples[idx, :]
 
     def samples_to_db(self, n: int = 10_000):
         print(f"Getting {n} samples...")
@@ -299,6 +299,6 @@ def get_season(date: str, latitude: float):
 
 
 if __name__ == "__main__":
-    sent = Sentinel2A("D:\datasets\sentinel2a\S2A_MSIL2A_20221013T125311_N0400_R138_T27WXN_20221013T172601.SAFE")
-    sent.samples_to_db()
-    a = 0
+    for img in os.listdir(r"D:\datasets\sentinel2a\\"):
+        sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
+        sentinel.samples_to_db(1_000)
