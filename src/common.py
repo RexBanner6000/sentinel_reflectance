@@ -104,7 +104,7 @@ class Sentinel2A:
 
     def get_bounding_coords(self):
         coords_regex = re.compile(
-            r"(?:<gmd:(\w*)Bound(\w*)>\n\s*<gco:Decimal>(\d{1,3}\.\d*)</gco:Decimal>)"
+            r"(?:<gmd:(\w*)Bound(\w*)>\n\s*<gco:Decimal>(-?\d{1,3}\.\d*)</gco:Decimal>)"
         )
         raw_str = self.read_text_file("INSPIRE.xml")
         bounding_coords = {}
@@ -299,7 +299,7 @@ def get_season(date: str, latitude: float):
 
 
 if __name__ == "__main__":
-    for img in os.listdir(r"D:\datasets\sentinel2a\S2A_MSIL2A_20221223T005711_N0509_R002_T53JPF_20221223T030600.SAFE"):
+    for img in os.listdir(r"D:\datasets\sentinel2a\\"):
         sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
-        sentinel.samples_to_db(1_000_000)
+        sentinel.samples_to_db(100_000)
         del sentinel
