@@ -185,14 +185,10 @@ class Sentinel2A:
 
         return images
 
-    def create_mask(self, bands: Tuple[int] = (4, 5)):
-        scl = rasterio.open(os.path.join(self.path, self.images["SCL"]["20m"])).read(1)
-
+    def create_mask(self, scl: np.ndarray, bands: Tuple[int] = (2, 4, 5, 11)):
         mask = np.zeros(scl.shape)
-
         for band in bands:
             mask[scl == band] = 1
-
         return mask
 
     def create_linear_rgb(self, resolution: str = "10m"):
@@ -224,24 +220,28 @@ class Sentinel2A:
         srgb = xyz2rgb(xyz) * 255
         return Image.fromarray(srgb.astype("uint8"))
 
-    def get_random_samples(self, n: int = 10_000, mask_bands: Tuple[int] = (4, 5)):
+    def get_random_samples(self, n: int = 10_000, mask_bands: Tuple[int] = (2, 4, 5, 11)):
         rgb = self.create_linear_rgb(resolution="10m")
         nir = self.create_band_image(bandid="B08", resolution="10m").reshape((-1, 1))
-
-        mask = self.create_mask(mask_bands)
-        mask = resize(mask, (rgb.shape[0], rgb.shape[1])).reshape(-1)
+        scl = rasterio.open(os.path.join(self.path, self.images["SCL"]["20m"])).read(1)
+        scl = np.repeat(np.repeat(scl, 2, axis=0), 2, axis=1)
+        mask = self.create_mask(scl, mask_bands).reshape(-1)
+        scl = scl.reshape((-1, 1))
         rgb = rgb.reshape((-1, 3))
 
         data = np.append(rgb, nir, axis=1)
+        data = np.append(data, scl, axis=1)
         samples = data[mask == 1, :]
         idx = np.random.randint(0, len(samples), n)
-        if mask.sum() < n:
+        del data, rgb, nir, scl, mask
+
+        if len(samples) < n:
             return samples
         else:
             return samples[idx, :]
 
     def samples_to_db(self, n: int = 10_000):
-        print(f"Getting {n} samples...")
+        print(f"Getting {n} samples from {self.product_uri}...")
         samples = self.get_random_samples(n)
 
         print("Getting climate data...")
@@ -267,10 +267,10 @@ class Sentinel2A:
 
     def _generate_sql(self, sample: np.array, climate: str, table: str = "sentinel2a"):
         sql = f"INSERT INTO {table} " \
-              f"(uuid, product_uri, country, continent, capture, b04, b03, b02, b08, season, climate) " \
+              f"(uuid,product_uri,country,continent,capture,b04,b03,b02,b08,season,climate,classification) " \
               f"VALUES ('{uuid4().hex}', '{self.product_uri}', '{self.country_code}', " \
               f"'{self.continent}', '{self.capture_date}', '{sample[0]}', '{sample[1]}', " \
-              f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}')"
+              f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}', '{int(sample[4])}')"
 
         return sql
 
@@ -299,6 +299,7 @@ def get_season(date: str, latitude: float):
 
 
 if __name__ == "__main__":
-    for img in os.listdir(r"D:\datasets\sentinel2a\\"):
+    for img in os.listdir(r"D:\datasets\sentinel2a\S2A_MSIL2A_20221223T005711_N0509_R002_T53JPF_20221223T030600.SAFE"):
         sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
-        sentinel.samples_to_db(1_000)
+        sentinel.samples_to_db(1_000_000)
+        del sentinel
