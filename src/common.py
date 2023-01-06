@@ -1,7 +1,9 @@
-import koppen_climate
 import os
+import psycopg2
 import re
 import ssl
+from datetime import datetime, timedelta
+from enum import Enum
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -12,8 +14,18 @@ from geopy.geocoders import Nominatim
 from PIL import Image
 from skimage.color import xyz2rgb
 from skimage.transform import resize
+from uuid import uuid4
 
-from .constants import CIE_M
+import koppen_climate
+from constants import CIE_M
+
+
+class Season(Enum):
+    SPRING = "SPRING"
+    SUMMER = "SUMMER"
+    AUTUMN = "AUTUMN"
+    WINTER = "WINTER"
+    UNKNOWN = "UNKNOWN"
 
 
 class Sentinel2A:
@@ -24,6 +36,7 @@ class Sentinel2A:
         self.solar_irradiance: Dict = None
         self.band_mapping: Dict = None
         self.bounding_coords: Dict = None
+        self.centre_coords: tuple = (np.nan, np.nan)
         self.country: str = None
         self.country_code: str = None
         self.capture_date: str = None
@@ -46,12 +59,16 @@ class Sentinel2A:
         self.solar_irradiance = self.get_solar_irradiance()
 
         self.bounding_coords = self.get_bounding_coords()
+        self.centre_coords = self.get_centre_coords()
         self.reverse_geocode_location()
 
         self.capture_date = self.get_product_info("PRODUCT_START_TIME")
         self.product_type = self.get_product_info("PRODUCT_TYPE")
         self.processing_level = self.get_product_info("PROCESSING_LEVEL")
         self.product_uri = self.get_product_info("PRODUCT_URI")
+        self.season = get_season(
+            self.capture_date.split('T')[0], self.centre_coords[0]
+        )
 
     def get_product_info(self, param: str):
         capture_regex = re.compile(
@@ -99,12 +116,11 @@ class Sentinel2A:
         return bounding_coords
 
     def reverse_geocode_location(self):
-        centre_coords = self.get_centre_coords()
         #TODO: Fix SSL request so this isnt needed
         ssl._create_default_https_context = ssl._create_unverified_context
 
         locator = Nominatim(user_agent="sent2ref", scheme="https")
-        location = locator.reverse(centre_coords)
+        location = locator.reverse(self.centre_coords)
         self.country = location.raw["address"]["country"]
         self.country_code = location.raw["address"]["country_code"].upper()
         self.continent = pc.country_alpha2_to_continent_code(self.country_code)
@@ -115,7 +131,7 @@ class Sentinel2A:
         coords = list(map(np.mean, zip(*(top_left, bottom_right))))
         if coords[1] > 180:
             coords[1] -= 360
-        return coords
+        return tuple(coords)
 
     def get_physical_band_mapping(self):
         physical_band_regex = re.compile(
@@ -222,4 +238,67 @@ class Sentinel2A:
         if mask.sum() < n:
             return samples
         else:
-            return rgb_samples[:n, :]
+            return samples[:n, :]
+
+    def samples_to_db(self, n: int = 10_000):
+        print(f"Getting {n} samples...")
+        samples = self.get_random_samples(n)
+
+        print("Getting climate data...")
+        koppen = koppen_climate.read_climate_data("./koppen_1901-2010.tsv")
+        climate = koppen_climate.get_coord_climate(
+            self.centre_coords[0], self.centre_coords[1], koppen
+        )
+
+        print("Connecting to DB...")
+        connection = self._connect_to_db()
+        cur = connection.cursor()
+
+        print("Generating SQL...")
+        for sample in samples:
+            sql = self._generate_sql(sample, climate)
+            cur.execute(sql)
+        print("Committing SQL to DB...")
+        connection.commit()
+        print("Done!")
+
+    def _connect_to_db(self):
+        return psycopg2.connect("dbname='postgres' user='postgres' host='localhost' password='postgres'")
+
+    def _generate_sql(self, sample: np.array, climate: str, table: str = "sentinel2a"):
+        sql = f"INSERT INTO {table} " \
+              f"(uuid, product_uri, country, continent, capture, b04, b03, b02, b08, season, climate) " \
+              f"VALUES ('{uuid4().hex}', '{self.product_uri}', '{self.country_code}', " \
+              f"'{self.continent}', '{self.capture_date}', '{sample[0]}', '{sample[1]}', " \
+              f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}')"
+
+        return sql
+
+
+def get_season(date: str, latitude: float):
+    spring = range(60, 151)
+    summer = range(152, 243)
+    autumn = range(244, 334)
+
+    date = datetime.strptime(date, "%Y-%m-%d")
+    if latitude < 0:
+        date += timedelta(days=180)
+
+    day_of_year = date.timetuple().tm_yday
+
+    if day_of_year in spring:
+        season = Season.SPRING
+    elif day_of_year in summer:
+        season = Season.SUMMER
+    elif day_of_year in autumn:
+        season = Season.AUTUMN
+    else:
+        season = Season.WINTER
+
+    return season
+
+
+if __name__ == "__main__":
+    sent = Sentinel2A("D:\datasets\sentinel2a\S2A_MSIL2A_20221013T125311_N0400_R138_T27WXN_20221013T172601.SAFE")
+    sent.samples_to_db()
+    a = 0
