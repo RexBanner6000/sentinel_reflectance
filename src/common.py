@@ -1,3 +1,4 @@
+import koppen_climate
 import os
 import re
 import ssl
