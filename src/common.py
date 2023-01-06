@@ -99,10 +99,7 @@ class Sentinel2A:
         return bounding_coords
 
     def reverse_geocode_location(self):
-        top_left = (self.bounding_coords["north"], self.bounding_coords["east"])
-        bottom_right = (self.bounding_coords["south"], self.bounding_coords["west"])
-
-        centre_coords = tuple(map(np.mean, zip(*(top_left, bottom_right))))
+        centre_coords = self.get_centre_coords()
         #TODO: Fix SSL request so this isnt needed
         ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -111,6 +108,14 @@ class Sentinel2A:
         self.country = location.raw["address"]["country"]
         self.country_code = location.raw["address"]["country_code"].upper()
         self.continent = pc.country_alpha2_to_continent_code(self.country_code)
+
+    def get_centre_coords(self):
+        top_left = (self.bounding_coords["north"], self.bounding_coords["east"])
+        bottom_right = (self.bounding_coords["south"], self.bounding_coords["west"])
+        coords = list(map(np.mean, zip(*(top_left, bottom_right))))
+        if coords[1] > 180:
+            coords[1] -= 360
+        return coords
 
     def get_physical_band_mapping(self):
         physical_band_regex = re.compile(
