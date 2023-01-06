@@ -267,7 +267,7 @@ class Sentinel2A:
 
     def _generate_sql(self, sample: np.array, climate: str, table: str = "sentinel2a"):
         sql = f"INSERT INTO {table} " \
-              f"(uuid,product_uri,country,continent,capture,b04,b03,b02,b08,season,climate,classification) " \
+              f"(uuid,product_uri,country,continent,capture,b02,b03,b04,b08,season,climate,classification) " \
               f"VALUES ('{uuid4().hex}', '{self.product_uri}', '{self.country_code}', " \
               f"'{self.continent}', '{self.capture_date}', '{sample[0]}', '{sample[1]}', " \
               f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}', '{int(sample[4])}')"
