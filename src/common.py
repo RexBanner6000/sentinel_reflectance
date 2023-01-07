@@ -16,8 +16,8 @@ from PIL import Image
 from skimage.color import xyz2rgb
 from skimage.transform import resize
 
-import koppen_climate
-from constants import CIE_M
+from src.constants import CIE_M
+from src.koppen_climate import get_coord_climate, read_climate_data
 
 
 class Season(Enum):
@@ -59,7 +59,7 @@ class Sentinel2A:
         self.solar_irradiance = self.get_solar_irradiance()
 
         self.bounding_coords = self.get_bounding_coords()
-        self.centre_coords = self.get_centre_coords()
+        self.centre_coords = get_centre_coords(self.bounding_coords)
         self.reverse_geocode_location()
 
         self.capture_date = self.get_product_info("PRODUCT_START_TIME")
@@ -120,14 +120,6 @@ class Sentinel2A:
         self.country = location.raw["address"]["country"]
         self.country_code = location.raw["address"]["country_code"].upper()
         self.continent = pc.country_alpha2_to_continent_code(self.country_code)
-
-    def get_centre_coords(self):
-        top_left = (self.bounding_coords["north"], self.bounding_coords["east"])
-        bottom_right = (self.bounding_coords["south"], self.bounding_coords["west"])
-        coords = list(map(np.mean, zip(*(top_left, bottom_right))))
-        if coords[1] > 180:
-            coords[1] -= 360
-        return tuple(coords)
 
     def get_physical_band_mapping(self):
         physical_band_regex = re.compile(
@@ -241,8 +233,8 @@ class Sentinel2A:
         samples = self.get_random_samples(n)
 
         print("Getting climate data...")
-        koppen = koppen_climate.read_climate_data("./koppen_1901-2010.tsv")
-        climate = koppen_climate.get_coord_climate(
+        koppen = read_climate_data("./koppen_1901-2010.tsv")
+        climate = get_coord_climate(
             self.centre_coords[0], self.centre_coords[1], koppen
         )
 
@@ -296,6 +288,15 @@ def get_season(date: str, latitude: float):
         season = Season.WINTER
 
     return season
+
+
+def get_centre_coords(coords_dict: dict):
+    top_left = (coords_dict["north"], coords_dict["east"])
+    bottom_right = (coords_dict["south"], coords_dict["west"])
+    coords = list(map(np.mean, zip(*(top_left, bottom_right))))
+    if coords[1] > 180:
+        coords[1] -= 360
+    return tuple(coords)
 
 
 if __name__ == "__main__":
