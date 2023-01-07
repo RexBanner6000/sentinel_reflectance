@@ -16,8 +16,8 @@ from PIL import Image
 from skimage.color import xyz2rgb
 from skimage.transform import resize
 
-import koppen_climate
-from constants import CIE_M
+from src.koppen_climate import get_coord_climate, read_climate_data
+from src.constants import CIE_M
 
 
 class Season(Enum):
@@ -241,8 +241,8 @@ class Sentinel2A:
         samples = self.get_random_samples(n)
 
         print("Getting climate data...")
-        koppen = koppen_climate.read_climate_data("./koppen_1901-2010.tsv")
-        climate = koppen_climate.get_coord_climate(
+        koppen = read_climate_data("./koppen_1901-2010.tsv")
+        climate = get_coord_climate(
             self.centre_coords[0], self.centre_coords[1], koppen
         )
 
