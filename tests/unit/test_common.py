@@ -1,4 +1,4 @@
-from src.common import get_season, Season
+from src.common import Season, get_season
 
 
 def test_get_season():

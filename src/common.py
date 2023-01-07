@@ -16,8 +16,8 @@ from PIL import Image
 from skimage.color import xyz2rgb
 from skimage.transform import resize
 
-from src.koppen_climate import get_coord_climate, read_climate_data
 from src.constants import CIE_M
+from src.koppen_climate import get_coord_climate, read_climate_data
 
 
 class Season(Enum):
