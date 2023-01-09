@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 
 def read_climate_data(filename: Path):
@@ -40,3 +41,14 @@ def lookup_nearest(x0, y0, x, y, z):
     yi = np.abs(y - y0)
     zi = (xi**2 + yi**2).argmin()
     return z[zi]
+
+
+def get_climate_distribution(koppen):
+    climates_df = pd.DataFrame(koppen)
+    return climates_df.groupby('p1901_2010').count().sort_values('longitude', ascending=False)
+
+
+if __name__ == "__main__":
+    koppen = read_climate_data("./koppen_1901-2010.tsv")
+    climate_distribution = get_climate_distribution(koppen)
+    print(climate_distribution)
