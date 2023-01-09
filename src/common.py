@@ -1,6 +1,7 @@
 import os
 import re
 import ssl
+import utm
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -15,8 +16,8 @@ from geopy.geocoders import Nominatim
 from PIL import Image
 from skimage.color import xyz2rgb
 
-from src.constants import CIE_M
-from src.koppen_climate import get_coord_climate, read_climate_data
+from constants import CIE_M
+from koppen_climate import get_coord_climate, read_climate_data
 
 
 class Season(Enum):
@@ -199,6 +200,15 @@ class Sentinel2A:
         band_data = band.read(1) + self.boa_offset[bandid]
         return band_data / (self.boa_quantification + self.boa_offset[bandid])
 
+    def get_pixel_coords(self, image: np.ndarray, resolution: int = 10):
+        x0, y0, _, _ = utm.from_latlon(self.bounding_coords["north"], self.bounding_coords["west"])
+        xx, yy = np.meshgrid(range(0, image.shape[1]), range(0, image.shape[1]))
+
+        xx = x0 + resolution * xx
+        yy = y0 - resolution * yy
+
+        return xx, yy
+
     def create_srgb(self, resolution: str = "10m"):
         rgb = self.create_linear_rgb(resolution=resolution)
         xyz = np.dot(rgb.reshape((-1, 3)), CIE_M).reshape(rgb.shape)
@@ -209,18 +219,17 @@ class Sentinel2A:
         self, n: int = 10_000, mask_bands: Tuple[int] = (2, 4, 5, 11)
     ):
         rgb = self.create_linear_rgb(resolution="10m")
+        xx, yy = self.get_pixel_coords(rgb, 10)
         nir = self.create_band_image(bandid="B08", resolution="10m").reshape((-1, 1))
         scl = rasterio.open(os.path.join(self.path, self.images["SCL"]["20m"])).read(1)
         scl = np.repeat(np.repeat(scl, 2, axis=0), 2, axis=1)
         mask = self.create_mask(scl, mask_bands).reshape(-1)
-        scl = scl.reshape((-1, 1))
-        rgb = rgb.reshape((-1, 3))
-
-        data = np.append(rgb, nir, axis=1)
-        data = np.append(data, scl, axis=1)
+        data = np.concatenate(
+            [rgb.reshape((-1, 3)), nir, scl.reshape((-1, 1)), yy.reshape((-1, 1)), xx.reshape((-1, 1))], axis=1
+        )
         samples = data[mask == 1, :]
         idx = np.random.randint(0, len(samples), n)
-        del data, rgb, nir, scl, mask
+        del data, rgb, nir, scl, mask, xx, yy
 
         if len(samples) < n:
             return samples
@@ -257,10 +266,11 @@ class Sentinel2A:
     def _generate_sql(self, sample: np.array, climate: str, table: str = "sentinel2a"):
         sql = (
             f"INSERT INTO {table} "
-            f"(uuid,product_uri,country,continent,capture,b02,b03,b04,b08,season,climate,classification) "
+            f"(uuid,product_uri,country,continent,capture,b02,b03,b04,b08,season,climate,classification,northings,eastings) "
             f"VALUES ('{uuid4().hex}', '{self.product_uri}', '{self.country_code}', "
             f"'{self.continent}', '{self.capture_date}', '{sample[0]}', '{sample[1]}', "
-            f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}', '{int(sample[4])}')"
+            f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}', '{int(sample[4])}', "
+            f"'{sample[5]}', '{sample[6]}')"
         )
 
         return sql
@@ -304,3 +314,4 @@ if __name__ == "__main__":
         sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
         sentinel.samples_to_db(100_000)
         del sentinel
+        break
