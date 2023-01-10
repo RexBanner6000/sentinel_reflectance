@@ -201,7 +201,11 @@ class Sentinel2A:
         return band_data / (self.boa_quantification + self.boa_offset[bandid])
 
     def get_pixel_coords(self, image: np.ndarray, resolution: int = 10):
-        x0, y0, _, _ = utm.from_latlon(self.bounding_coords["north"], self.bounding_coords["west"])
+        north = self.bounding_coords["north"]
+        west = self.bounding_coords["west"]
+        if west > 180:
+            west -= 360
+        x0, y0, _, _ = utm.from_latlon(north, west)
         xx, yy = np.meshgrid(range(0, image.shape[1]), range(0, image.shape[1]))
 
         xx = x0 + resolution * xx
@@ -216,20 +220,32 @@ class Sentinel2A:
         return Image.fromarray(srgb.astype("uint8"))
 
     def get_random_samples(
-        self, n: int = 10_000, mask_bands: Tuple[int] = (2, 4, 5, 11)
+        self, n: int = 10_000, mask_bands: Tuple[int] = (2, 4, 5, 11), seed: int = 42
     ):
+
         rgb = self.create_linear_rgb(resolution="10m")
         xx, yy = self.get_pixel_coords(rgb, 10)
+        xx = np.round(xx)
+        yy = np.round(yy)
         nir = self.create_band_image(bandid="B08", resolution="10m").reshape((-1, 1))
         scl = rasterio.open(os.path.join(self.path, self.images["SCL"]["20m"])).read(1)
         scl = np.repeat(np.repeat(scl, 2, axis=0), 2, axis=1)
-        mask = self.create_mask(scl, mask_bands).reshape(-1)
-        data = np.concatenate(
-            [rgb.reshape((-1, 3)), nir, scl.reshape((-1, 1)), yy.reshape((-1, 1)), xx.reshape((-1, 1))], axis=1
+        samples = np.concatenate(
+            [
+                rgb.reshape((-1, 3)),
+                nir,
+                scl.reshape((-1, 1)),
+                yy.reshape((-1, 1)),
+                xx.reshape((-1, 1)),
+            ], axis=1
         )
-        samples = data[mask == 1, :]
-        idx = np.random.randint(0, len(samples), n)
-        del data, rgb, nir, scl, mask, xx, yy
+        if seed:
+            np.random.seed(seed)
+        idx = np.random.choice(
+            np.arange(0, len(samples)), np.min([len(samples), n]), replace=False
+        )
+
+        del rgb, nir, scl, xx, yy
 
         if len(samples) < n:
             return samples
@@ -270,7 +286,7 @@ class Sentinel2A:
             f"VALUES ('{uuid4().hex}', '{self.product_uri}', '{self.country_code}', "
             f"'{self.continent}', '{self.capture_date}', '{sample[0]}', '{sample[1]}', "
             f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}', '{int(sample[4])}', "
-            f"'{sample[5]}', '{sample[6]}')"
+            f"'{int(sample[5])}', '{int(sample[6])}')"
         )
 
         return sql
@@ -314,4 +330,3 @@ if __name__ == "__main__":
         sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
         sentinel.samples_to_db(100_000)
         del sentinel
-        break
