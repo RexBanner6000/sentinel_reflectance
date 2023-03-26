@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
     if args.rgb_image:
         image = sentinel_data.create_srgb(resolution=args.resolution)
+        print(f"Saving {args.rgb_image}...")
         image.save(args.rgb_image)
 
     if args.n_samples:

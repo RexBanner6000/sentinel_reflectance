@@ -16,8 +16,8 @@ from geopy.geocoders import Nominatim
 from PIL import Image
 from skimage.color import xyz2rgb
 
-from constants import CIE_M
-from koppen_climate import get_coord_climate, read_climate_data
+from src.constants import CIE_M
+from src.koppen_climate import get_coord_climate, read_climate_data
 
 
 class Season(Enum):
@@ -113,9 +113,8 @@ class Sentinel2A:
 
     def reverse_geocode_location(self):
         # TODO: Fix SSL request so this isnt needed
-        ssl._create_default_https_context = ssl._create_unverified_context
-
-        locator = Nominatim(user_agent="sent2ref", scheme="https")
+        context = ssl.create_default_context(cafile=r"C:\Users\ninja\anaconda3\envs\sentinel_reflectance\Library\ssl\cacert.pem")
+        locator = Nominatim(user_agent="sen2ref", ssl_context=context, scheme="https")
         location = locator.reverse(self.centre_coords)
         self.country = location.raw["address"]["country"]
         self.country_code = location.raw["address"]["country_code"].upper()
@@ -276,7 +275,7 @@ class Sentinel2A:
 
     def _connect_to_db(self):
         return psycopg2.connect(
-            "dbname='postgres' user='postgres' host='localhost' password='postgres'"
+            "dbname='sentinel' user='postgres' host='localhost' password='password'"
         )
 
     def _generate_sql(self, sample: np.array, climate: str, table: str = "sentinel2a"):
@@ -329,4 +328,10 @@ if __name__ == "__main__":
         print(f"Reading {img}...")
         sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
         sentinel.samples_to_db(100_000)
+
+        print("Creating srgb image...")
+        srgb_image = sentinel.create_srgb()
+        name = f"{sentinel.country_code}_{sentinel.season.value}_{sentinel.capture_date}.png".replace(":", "")
+        print(f"Writing image to {name}...")
+        srgb_image.save(name)
         del sentinel
