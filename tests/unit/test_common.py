@@ -1,4 +1,8 @@
-from src.common import Season, get_centre_coords, get_season
+import numpy as np
+
+from unittest.mock import patch
+
+from src.common import Season, get_centre_coords, get_season, Sentinel2A
 
 
 def test_get_season():
@@ -18,3 +22,21 @@ def test_get_centre_coords():
     }
 
     assert get_centre_coords(coords_dict) == (49.5, 1.5)
+
+
+@patch("src.common.Sentinel2A.populate_metadata")
+def test_latlon2utm(mock_populate_metadata):
+    mock_populate_metadata.side_effect = [None]
+    sentinel = Sentinel2A("./foo")
+
+    eastings, northings = sentinel._convert_latlon2utm(50.6980, -2.2286)
+    assert np.abs(eastings - 554479) < 50
+    assert np.abs(northings - 5616526) < 50
+
+    eastings, northings = sentinel._convert_latlon2utm(-31.1988, 136.825)
+    assert np.abs(eastings - 673877) < 50
+    assert np.abs(northings - 6546931) < 50
+
+    eastings, northings = sentinel._convert_latlon2utm(49.9935, 36.2304)
+    assert np.abs(eastings - 301497) < 50
+    assert np.abs(northings - 5541584) < 50

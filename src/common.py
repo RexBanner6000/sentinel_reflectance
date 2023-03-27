@@ -199,16 +199,21 @@ class Sentinel2A:
         band_data = band.read(1) + self.boa_offset[bandid]
         return band_data / (self.boa_quantification + self.boa_offset[bandid])
 
+    @staticmethod
+    def _convert_latlon2utm(latitude: float, longitude: float):
+        eastings, northings, _, _ = utm.from_latlon(latitude, longitude)
+        return eastings, northings
+
     def get_pixel_coords(self, image: np.ndarray, resolution: int = 10):
         north = self.bounding_coords["north"]
         west = self.bounding_coords["west"]
         if west > 180:
             west -= 360
-        x0, y0, _, _ = utm.from_latlon(north, west)
-        xx, yy = np.meshgrid(range(0, image.shape[1]), range(0, image.shape[1]))
+        eastings, northings = self._convert_latlon2utm(north, west)
+        xx, yy = np.meshgrid(range(0, image.shape[1]), range(0, image.shape[0]))
 
-        xx = x0 + resolution * xx
-        yy = y0 - resolution * yy
+        xx = eastings + resolution * xx
+        yy = northings - resolution * yy
 
         return xx, yy
 
