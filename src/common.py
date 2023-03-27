@@ -206,14 +206,15 @@ class Sentinel2A:
 
     def get_pixel_coords(self, image: np.ndarray, resolution: int = 10):
         north = self.bounding_coords["north"]
+        south = self.bounding_coords["south"]
+        east = self.bounding_coords["east"]
         west = self.bounding_coords["west"]
         if west > 180:
             west -= 360
-        eastings, northings = self._convert_latlon2utm(north, west)
         xx, yy = np.meshgrid(range(0, image.shape[1]), range(0, image.shape[0]))
 
-        xx = eastings + resolution * xx
-        yy = northings - resolution * yy
+        xx = west + (east - west) / image.shape[1] * xx
+        yy = south + (north - south) / image.shape[0] * yy
 
         return xx, yy
 
@@ -286,11 +287,11 @@ class Sentinel2A:
     def _generate_sql(self, sample: np.array, climate: str, table: str = "sentinel2a"):
         sql = (
             f"INSERT INTO {table} "
-            f"(uuid,product_uri,country,continent,capture,b02,b03,b04,b08,season,climate,classification,northings,eastings) "
+            f"(uuid,product_uri,country,continent,capture,b02,b03,b04,b08,season,climate,classification,lat,lon) "
             f"VALUES ('{uuid4().hex}', '{self.product_uri}', '{self.country_code}', "
             f"'{self.continent}', '{self.capture_date}', '{sample[0]}', '{sample[1]}', "
             f"'{sample[2]}', '{sample[3]}', '{self.season.value}', '{climate}', '{int(sample[4])}', "
-            f"'{int(sample[5])}', '{int(sample[6])}')"
+            f"'{sample[5]}', '{sample[6]}')"
         )
 
         return sql
@@ -330,6 +331,7 @@ def get_centre_coords(coords_dict: dict):
 
 if __name__ == "__main__":
     for img in os.listdir(r"D:\datasets\sentinel2a\\"):
+        tic = datetime.now()
         print(f"Reading {img}...")
         sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
         sentinel.samples_to_db(100_000)
@@ -339,4 +341,5 @@ if __name__ == "__main__":
         name = f"{sentinel.country_code}_{sentinel.season.value}_{sentinel.capture_date}.png".replace(":", "")
         print(f"Writing image to {name}...")
         srgb_image.save(name)
+        print(f"Took {datetime.now() - tic}")
         del sentinel
