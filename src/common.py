@@ -277,7 +277,6 @@ class Sentinel2A:
             cur.execute(sql)
         print("Committing SQL to DB...")
         connection.commit()
-        print("Done!\n")
 
     def _connect_to_db(self):
         return psycopg2.connect(
@@ -341,5 +340,5 @@ if __name__ == "__main__":
         name = f"{sentinel.country_code}_{sentinel.season.value}_{sentinel.capture_date}.png".replace(":", "")
         print(f"Writing image to {name}...")
         srgb_image.save(name)
-        print(f"Took {datetime.now() - tic}")
+        print(f"Took {datetime.now() - tic}\n")
         del sentinel
