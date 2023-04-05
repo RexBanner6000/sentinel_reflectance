@@ -1,8 +1,8 @@
-import numpy as np
-
 from unittest.mock import patch
 
-from src.common import Season, get_centre_coords, get_season, Sentinel2A
+import numpy as np
+
+from src.common import Season, Sentinel2A, get_centre_coords, get_season
 
 
 def test_get_season():
@@ -14,12 +14,7 @@ def test_get_season():
 
 
 def test_get_centre_coords():
-    coords_dict = {
-        "north": 50,
-        "south": 49,
-        "east": 2,
-        "west": 1
-    }
+    coords_dict = {"north": 50, "south": 49, "east": 2, "west": 1}
 
     assert get_centre_coords(coords_dict) == (49.5, 1.5)
 

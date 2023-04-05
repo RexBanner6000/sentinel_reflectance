@@ -45,7 +45,11 @@ def lookup_nearest(x0, y0, x, y, z):
 
 def get_climate_distribution(koppen):
     climates_df = pd.DataFrame(koppen)
-    return climates_df.groupby('p1901_2010').count().sort_values('longitude', ascending=False)
+    return (
+        climates_df.groupby("p1901_2010")
+        .count()
+        .sort_values("longitude", ascending=False)
+    )
 
 
 if __name__ == "__main__":

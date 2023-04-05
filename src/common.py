@@ -1,7 +1,6 @@
 import os
 import re
 import ssl
-import utm
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -12,11 +11,13 @@ import numpy as np
 import psycopg2
 import pycountry_convert as pc
 import rasterio
+import utm
 from geopy.geocoders import Nominatim
 from PIL import Image
 from skimage.color import xyz2rgb
 
 from src.constants import CIE_M
+from src.database import check_for_samples_in_db
 from src.koppen_climate import get_coord_climate, read_climate_data
 
 
@@ -113,7 +114,9 @@ class Sentinel2A:
 
     def reverse_geocode_location(self):
         # TODO: Fix SSL request so this isnt needed
-        context = ssl.create_default_context(cafile=r"C:\Users\ninja\anaconda3\envs\sentinel_reflectance\Library\ssl\cacert.pem")
+        context = ssl.create_default_context(
+            cafile=r"C:\Users\ninja\anaconda3\envs\sentinel_reflectance\Library\ssl\cacert.pem"
+        )
         locator = Nominatim(user_agent="sen2ref", ssl_context=context, scheme="https")
         location = locator.reverse(self.centre_coords)
         self.country = location.raw["address"]["country"]
@@ -227,7 +230,6 @@ class Sentinel2A:
     def get_random_samples(
         self, n: int = 10_000, mask_bands: Tuple[int] = (2, 4, 5, 11), seed: int = 42
     ):
-
         rgb = self.create_linear_rgb(resolution="10m")
         xx, yy = self.get_pixel_coords(rgb, 10)
         xx = np.round(xx)
@@ -242,7 +244,8 @@ class Sentinel2A:
                 scl.reshape((-1, 1)),
                 yy.reshape((-1, 1)),
                 xx.reshape((-1, 1)),
-            ], axis=1
+            ],
+            axis=1,
         )
         if seed:
             np.random.seed(seed)
@@ -333,12 +336,16 @@ if __name__ == "__main__":
         tic = datetime.now()
         print(f"Reading {img}...")
         sentinel = Sentinel2A(rf"D:\datasets\sentinel2a\{img}")
-        sentinel.samples_to_db(100_000)
-
-        print("Creating srgb image...")
-        srgb_image = sentinel.create_srgb()
-        name = f"{sentinel.country_code}_{sentinel.season.value}_{sentinel.capture_date}.png".replace(":", "")
-        print(f"Writing image to {name}...")
-        srgb_image.save(name)
-        print(f"Took {datetime.now() - tic}\n")
+        if check_for_samples_in_db(sentinel.product_uri):
+            print(f"Results present for {sentinel.product_uri}, skipping...")
+        else:
+            sentinel.samples_to_db(100_000)
+            print("Creating srgb image...")
+            srgb_image = sentinel.create_srgb()
+            name = f"{sentinel.country_code}_{sentinel.season.value}_{sentinel.capture_date}.png".replace(
+                ":", ""
+            )
+            print(f"Writing image to {name}...")
+            srgb_image.save(name)
+            print(f"Took {datetime.now() - tic}\n")
         del sentinel
